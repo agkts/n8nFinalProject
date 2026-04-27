@@ -600,23 +600,13 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <script>
-    // Tarayıcıda doğrudan açarken bu satırı kendi n8n URL'inle güncelle:
-    // window.N8N_BASE_URL = 'https://n8n.161.35.17.151.sslip.io';
-</script>
-<script>
-    // N8N_BASE_URL Docker'da entrypoint.sh tarafından yerine geçirilir.
-    // Doğrudan tarayıcıda açarken bu değer olduğu gibi kalır; o durumda
-    // aşağıdaki fallback (window.N8N_BASE_URL veya mevcut origin) devreye girer.
-    const _rawBase = '${N8N_BASE_URL}';
-    const _base = (_rawBase.startsWith('${'))
-        ? (window.N8N_BASE_URL || (window.location.origin !== 'null' ? window.location.origin : ''))
-        : _rawBase;
-
+    // Webhook istekleri nginx uzerinden n8n'e proxy'leniyor.
+    // Ayni origin kullanildiginda CORS sorunu olmaz.
     const CONFIG = {
-        getDataUrl: _base + '/webhook/get-crm-data',
-        sendReplyUrl: _base + '/webhook/send-reply',
-        getSettingsUrl: _base + '/webhook/get-settings',
-        saveSettingsUrl: _base + '/webhook/save-settings',
+        getDataUrl: '/webhook/get-crm-data',
+        sendReplyUrl: '/webhook/send-reply',
+        getSettingsUrl: '/webhook/get-settings',
+        saveSettingsUrl: '/webhook/save-settings',
         refreshIntervalMs: 30000
     };
 
