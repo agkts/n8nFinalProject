@@ -1,0 +1,989 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1500,
+        -80
+      ],
+      "id": "dab20b31-4e25-44d1-9d8f-8e3429918394",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "o0mJ7yv29Viy9csk",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM",
+          "mode": "list",
+          "cachedResultName": "Google Sheets'e Tablo Aktarımı ve AI Entegrasyonu",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 365683674,
+          "mode": "list",
+          "cachedResultName": "Google Sheets'e Tablo Aktarımı ve AI Entegrasyonu",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM/edit#gid=365683674"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1280,
+        -80
+      ],
+      "id": "aa111111-1111-1111-1111-111111111111",
+      "name": "Get previous messages",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMeXoD71SXuG1mki",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Ayarlar",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1060,
+        -80
+      ],
+      "id": "cc333333-3333-3333-3333-333333333333",
+      "name": "Load Ayarlar",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMeXoD71SXuG1mki",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "SSS",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -840,
+        -80
+      ],
+      "id": "dd444444-4444-4444-4444-444444444444",
+      "name": "Load SSS",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMeXoD71SXuG1mki",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tüm sheet satırlarını ve yeni mail trigger verisini al\nconst allRows = $('Get previous messages').all();\nconst newMail = $('Gmail Trigger').item.json;\nconst messageId = newMail.id || '';\nconst triggerEmail = newMail.From || '';\n\n// Dedup: aynı Mesaj ID daha önce işlenmişse durdur\nconst alreadyProcessed = allRows.some(r => r.json && r.json['Mesaj ID'] === messageId && messageId !== '');\nif (alreadyProcessed) {\n  return [];\n}\n\n// Aynı email'den son 5 etkileşimi bul, kronolojik sırala (eski → yeni)\nconst previous = allRows\n  .filter(r => r.json && r.json.Email === triggerEmail)\n  .sort((a, b) => new Date(b.json.Tarih || 0) - new Date(a.json.Tarih || 0))\n  .slice(0, 5)\n  .reverse();\n\nlet contextStr = '';\nif (previous.length > 0) {\n  contextStr = 'ÖNCEKİ YAZIŞMALAR (eski → yeni):\\n';\n  previous.forEach((row, i) => {\n    const tarih = row.json.Tarih || 'tarih yok';\n    const mesaj = row.json.Mesaj || '';\n    const yanit = row.json['Gonderilen Yanit'] || row.json['AI Taslak'] || '(henüz yanıtlanmadı)';\n    contextStr += `${i+1}. [${tarih}]\\n   Müşteri: \"${mesaj}\"\\n   Bizim yanıtımız: \"${yanit}\"\\n\\n`;\n  });\n}\n\n// İşletme bilgileri (Load Ayarlar'dan)\nconst settings = $('Load Ayarlar').first()?.json || {};\nlet businessSection = '';\nconst hasAnyBusiness = settings.sirket_adi || settings.urun_hizmet || settings.calisma_saatleri || settings.iade_politikasi || settings.kargo_bilgisi || settings.ek_bilgi;\nif (hasAnyBusiness) {\n  businessSection = 'İŞLETME BİLGİLERİ:\\n';\n  if (settings.sirket_adi) businessSection += `- Şirket: ${settings.sirket_adi}\\n`;\n  if (settings.urun_hizmet) businessSection += `- Ürün/Hizmet: ${settings.urun_hizmet}\\n`;\n  if (settings.calisma_saatleri) businessSection += `- Çalışma Saatleri: ${settings.calisma_saatleri}\\n`;\n  if (settings.iade_politikasi) businessSection += `- İade Politikası: ${settings.iade_politikasi}\\n`;\n  if (settings.kargo_bilgisi) businessSection += `- Kargo: ${settings.kargo_bilgisi}\\n`;\n  if (settings.ek_bilgi) businessSection += `- Ek Bilgi: ${settings.ek_bilgi}\\n`;\n  businessSection += '\\n';\n}\nconst yanitTonu = settings.yanit_tonu || 'samimi ve profesyonel';\n\n// SSS (Load SSS'ten)\nconst faqRows = $('Load SSS').all().map(r => r.json).filter(r => r && r.Soru && r.Cevap);\nlet faqSection = '';\nif (faqRows.length > 0) {\n  faqSection = 'SIK SORULAN SORULAR:\\n';\n  faqRows.forEach(f => { faqSection += `S: ${f.Soru}\\nC: ${f.Cevap}\\n\\n`; });\n}\n\nreturn [{\n  json: {\n    businessSection,\n    faqSection,\n    yanitTonu,\n    context: contextStr,\n    newMessage: newMail.snippet || '',\n    messageId: messageId,\n    threadId: newMail.threadId || '',\n    fromEmail: triggerEmail,\n    date: new Date().toISOString(),\n    previousCount: previous.length\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -620,
+        -80
+      ],
+      "id": "bb222222-2222-2222-2222-222222222222",
+      "name": "Build context"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-flash-latest",
+          "mode": "list",
+          "cachedResultName": "models/gemini-flash-latest"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.businessSection }}{{ $json.faqSection }}{{ $json.context }}\nYENİ MAİL:\n{{ $json.newMessage }}"
+            },
+            {
+              "content": "=Sen bir müşteri ilişkileri asistanısın. Yukarıda (varsa): işletme bilgileri, sık sorulan sorular, müşteriyle önceki yazışmalar ve YENİ MAİL var.\n\nKurallar:\n1. İşletme bilgilerini kullan — şirket adını an, ürün/hizmete uygun konuş, politikalara uy.\n2. SSS'lerdeki cevapları referans al — uyan bir konu varsa o cevabı temel al, kelime kelime kopyalama, doğal ifade et.\n3. Önceki yazışmaları hatırla — kendini tekrar etme, çözülmüş konuyu yeniden açma.\n4. Yanıt tonu: {{ $json.yanitTonu }}\n\nJSON formatında ver:\nözet: [yeni mailin kısa özeti]\nduygu: [pozitif/negatif/nötr]\nYanıt: [kişiselleştirilmiş, işletme bilgisini kullanan taslak yanıt]\n",
+              "role": "model"
+            }
+          ]
+        },
+        "simplify": false,
+        "jsonOutput": true,
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        -80
+      ],
+      "id": "29798745-9d98-4b96-821d-6ff22c745d6e",
+      "name": "Message a model",
+      "retryOnFail": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "dagO4h0dOWIVff9W",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gemini'nin karmaşık klasör yapısından metni cımbızla çekiyoruz\nconst rawText = $input.first().json.candidates[0].content.parts[0].text;\n\n// Başındaki ve sonundaki gereksiz işaretleri temizle\nconst cleanJson = rawText.replace(/```json|```/g, \"\").trim();\n\n// Artık temiz bir JSON olduğu için objeye çeviriyoruz\nreturn JSON.parse(cleanJson);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -180,
+        -80
+      ],
+      "id": "d6bce1bb-9bf8-4dc7-9f8b-70a82106257e",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM",
+          "mode": "list",
+          "cachedResultName": "Google Sheets'e Tablo Aktarımı ve AI Entegrasyonu",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 365683674,
+          "mode": "list",
+          "cachedResultName": "Google Sheets'e Tablo Aktarımı ve AI Entegrasyonu",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM/edit#gid=365683674"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email": "={{ $('Gmail Trigger').item.json.From }}",
+            "Mesaj": "={{ $('Gmail Trigger').item.json.snippet }}",
+            "Yanit Durumu": "Bekliyor",
+            "Ozet": "={{ $json[\"özet\"] }}",
+            "Duygu": "={{ $json.duygu }}",
+            "AI Taslak": "={{ $json[\"Yanıt\"] }}",
+            "Mesaj ID": "={{ $('Build context').item.json.messageId }}",
+            "Thread ID": "={{ $('Build context').item.json.threadId }}",
+            "Tarih": "={{ $('Build context').item.json.date }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "Email", "displayName": "Email", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "Mesaj", "displayName": "Mesaj", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "Ozet", "displayName": "Ozet", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "Duygu", "displayName": "Duygu", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "AI Taslak", "displayName": "AI Taslak", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "Yanit Durumu", "displayName": "Yanit Durumu", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "Gonderilen Yanit", "displayName": "Gonderilen Yanit", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "Mesaj ID", "displayName": "Mesaj ID", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "Thread ID", "displayName": "Thread ID", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "Tarih", "displayName": "Tarih", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        40,
+        -80
+      ],
+      "id": "1555b7c5-2ab4-441e-803f-c4598a45e28e",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMeXoD71SXuG1mki",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "path": "get-crm-data",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -960,
+        224
+      ],
+      "id": "40713f78-a023-45d6-9dc3-90cb33740e5e",
+      "name": "Webhook",
+      "webhookId": "80f847fe-0c56-49d4-a0c1-daea91ca6724"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM",
+          "mode": "list",
+          "cachedResultName": "Google Sheets'e Tablo Aktarımı ve AI Entegrasyonu",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 365683674,
+          "mode": "list",
+          "cachedResultName": "Google Sheets'e Tablo Aktarımı ve AI Entegrasyonu",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM/edit#gid=365683674"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -752,
+        224
+      ],
+      "id": "45a81ab1-99fa-4c03-a3fd-0b310361bc6f",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMeXoD71SXuG1mki",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -528,
+        224
+      ],
+      "id": "2ddff269-87d7-473d-8dc0-349cbb01e24b",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "send-reply",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -960,
+        432
+      ],
+      "id": "c38cf45d-740c-44f8-8ca5-314273e07e17",
+      "name": "Webhook1",
+      "webhookId": "254cbe05-3b65-481a-ae76-96613d0ecbf3"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.body.email }}",
+        "subject": "=Mesajınız Hakkında Bilgilendirme",
+        "message": "={{ $json.body.message }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -752,
+        432
+      ],
+      "id": "c6d94bae-0463-4014-8f1b-6dcad71b886b",
+      "name": "Send a message",
+      "webhookId": "fb34eca9-3659-4c6b-a342-662ad6b5126c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "o0mJ7yv29Viy9csk",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM",
+          "mode": "list",
+          "cachedResultName": "Google Sheets'e Tablo Aktarımı ve AI Entegrasyonu",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 365683674,
+          "mode": "list",
+          "cachedResultName": "Google Sheets'e Tablo Aktarımı ve AI Entegrasyonu",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM/edit#gid=365683674"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Yanit Durumu": "Yanıtlandı",
+            "Email": "={{ $('Webhook1').item.json.body.email }}",
+            "Gonderilen Yanit": "={{ $('Webhook1').item.json.body.message }}"
+          },
+          "matchingColumns": [
+            "Email"
+          ],
+          "schema": [
+            { "id": "Email", "displayName": "Email", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Mesaj", "displayName": "Mesaj", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "Ozet", "displayName": "Ozet", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "Duygu", "displayName": "Duygu", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "AI Taslak", "displayName": "AI Taslak", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "Yanit Durumu", "displayName": "Yanit Durumu", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Gonderilen Yanit", "displayName": "Gonderilen Yanit", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "Mesaj ID", "displayName": "Mesaj ID", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "Thread ID", "displayName": "Thread ID", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "Tarih", "displayName": "Tarih", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "row_number", "displayName": "row_number", "required": false, "defaultMatch": false, "display": true, "type": "number", "canBeUsedToMatch": true, "readOnly": true, "removed": true }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -544,
+        432
+      ],
+      "id": "c35dc0de-75f4-48aa-876e-057f0b805311",
+      "name": "Update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMeXoD71SXuG1mki",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "get-settings",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1100,
+        640
+      ],
+      "id": "ee555555-5555-5555-5555-555555555555",
+      "name": "Webhook get-settings",
+      "webhookId": "ee555555-5555-5555-5555-555555555555"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Ayarlar",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -880,
+        640
+      ],
+      "id": "ff666666-6666-6666-6666-666666666666",
+      "name": "Read Ayarlar",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMeXoD71SXuG1mki",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "SSS",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -660,
+        640
+      ],
+      "id": "11777777-7777-7777-7777-777777777777",
+      "name": "Read SSS",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMeXoD71SXuG1mki",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ayarlar sayfasından tek satır oku\nconst settingsRow = $('Read Ayarlar').first()?.json || {};\n// SSS sayfasından tüm satırları oku, boş olanları at\nconst faqRows = $('Read SSS').all()\n  .map(r => r.json)\n  .filter(r => r && r.Soru && r.Cevap);\n\nreturn [{\n  json: {\n    settings: {\n      sirket_adi: settingsRow.sirket_adi || '',\n      urun_hizmet: settingsRow.urun_hizmet || '',\n      calisma_saatleri: settingsRow.calisma_saatleri || '',\n      iade_politikasi: settingsRow.iade_politikasi || '',\n      kargo_bilgisi: settingsRow.kargo_bilgisi || '',\n      yanit_tonu: settingsRow.yanit_tonu || '',\n      ek_bilgi: settingsRow.ek_bilgi || ''\n    },\n    faqs: faqRows.map(r => ({ soru: r.Soru, cevap: r.Cevap }))\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -440,
+        640
+      ],
+      "id": "22888888-8888-8888-8888-888888888888",
+      "name": "Build settings response"
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -220,
+        640
+      ],
+      "id": "33999999-9999-9999-9999-999999999999",
+      "name": "Respond Settings GET"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "save-settings",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1100,
+        848
+      ],
+      "id": "44aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "name": "Webhook save-settings",
+      "webhookId": "44aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Ayarlar",
+          "mode": "name"
+        },
+        "clear": "specificRows",
+        "startIndex": 2,
+        "rowsToDelete": 1,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -880,
+        848
+      ],
+      "id": "55bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      "name": "Clear Ayarlar",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMeXoD71SXuG1mki",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Ayarlar",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "sirket_adi": "={{ $('Webhook save-settings').item.json.body.settings.sirket_adi }}",
+            "urun_hizmet": "={{ $('Webhook save-settings').item.json.body.settings.urun_hizmet }}",
+            "calisma_saatleri": "={{ $('Webhook save-settings').item.json.body.settings.calisma_saatleri }}",
+            "iade_politikasi": "={{ $('Webhook save-settings').item.json.body.settings.iade_politikasi }}",
+            "kargo_bilgisi": "={{ $('Webhook save-settings').item.json.body.settings.kargo_bilgisi }}",
+            "yanit_tonu": "={{ $('Webhook save-settings').item.json.body.settings.yanit_tonu }}",
+            "ek_bilgi": "={{ $('Webhook save-settings').item.json.body.settings.ek_bilgi }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "sirket_adi", "displayName": "sirket_adi", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "urun_hizmet", "displayName": "urun_hizmet", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "calisma_saatleri", "displayName": "calisma_saatleri", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "iade_politikasi", "displayName": "iade_politikasi", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "kargo_bilgisi", "displayName": "kargo_bilgisi", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "yanit_tonu", "displayName": "yanit_tonu", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "ek_bilgi", "displayName": "ek_bilgi", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -700,
+        848
+      ],
+      "id": "66cccccc-cccc-cccc-cccc-cccccccccccc",
+      "name": "Save Ayarlar",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMeXoD71SXuG1mki",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "SSS",
+          "mode": "name"
+        },
+        "clear": "specificRows",
+        "startIndex": 2,
+        "rowsToDelete": 1000,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -520,
+        848
+      ],
+      "id": "77dddddd-dddd-dddd-dddd-dddddddddddd",
+      "name": "Clear SSS",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMeXoD71SXuG1mki",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Webhook body'sindeki faqs array'ini Sheet'e yazılabilir item'lara dönüştür\nconst faqs = $('Webhook save-settings').item.json.body.faqs || [];\nconst valid = faqs.filter(f => f && f.soru && f.cevap);\nif (valid.length === 0) return [];\nreturn valid.map(f => ({\n  json: { Soru: f.soru, Cevap: f.cevap }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -340,
+        848
+      ],
+      "id": "88eeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+      "name": "Prepare SSS rows"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1_OKE9vl3yeV-DeV0IpoPIojYeSDkEERu2Sx2yBanKiM",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "SSS",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Soru": "={{ $json.Soru }}",
+            "Cevap": "={{ $json.Cevap }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "Soru", "displayName": "Soru", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "Cevap", "displayName": "Cevap", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -160,
+        848
+      ],
+      "id": "99ffffff-ffff-ffff-ffff-ffffffffffff",
+      "name": "Save SSS",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "tMeXoD71SXuG1mki",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": true }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        20,
+        848
+      ],
+      "id": "aabbccdd-1111-2222-3333-444444444444",
+      "name": "Respond Settings POST"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Append row in sheet": {
+      "main": [
+        []
+      ]
+    },
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get previous messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get previous messages": {
+      "main": [
+        [
+          {
+            "node": "Load Ayarlar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Ayarlar": {
+      "main": [
+        [
+          {
+            "node": "Load SSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load SSS": {
+      "main": [
+        [
+          {
+            "node": "Build context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build context": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook get-settings": {
+      "main": [
+        [
+          {
+            "node": "Read Ayarlar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Ayarlar": {
+      "main": [
+        [
+          {
+            "node": "Read SSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read SSS": {
+      "main": [
+        [
+          {
+            "node": "Build settings response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build settings response": {
+      "main": [
+        [
+          {
+            "node": "Respond Settings GET",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook save-settings": {
+      "main": [
+        [
+          {
+            "node": "Clear Ayarlar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Ayarlar": {
+      "main": [
+        [
+          {
+            "node": "Save Ayarlar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Ayarlar": {
+      "main": [
+        [
+          {
+            "node": "Clear SSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear SSS": {
+      "main": [
+        [
+          {
+            "node": "Prepare SSS rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare SSS rows": {
+      "main": [
+        [
+          {
+            "node": "Save SSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save SSS": {
+      "main": [
+        [
+          {
+            "node": "Respond Settings POST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "d9b48078-be6e-4569-8c8a-07f9a9899653",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "804b723eb0483e50299c87af09b0ba985cbc8987bc0872f26983665190688e0d"
+  },
+  "id": "MlXh91ndgaqn2itA",
+  "tags": []
+}

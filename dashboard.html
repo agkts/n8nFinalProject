@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>n8n AI Pro | CRM Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-soft: #eef2ff;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-muted: #64748b;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; color: var(--text); }
+        .app { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+        /* HEADER */
+        header {
+            background: var(--surface);
+            border-radius: 20px;
+            padding: 20px 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        header h1 { margin: 0; font-size: 20px; font-weight: 800; }
+        header .subtitle { color: var(--text-muted); font-size: 13px; margin-top: 3px; }
+        header .actions { display: flex; align-items: center; gap: 12px; }
+        .refresh-info { font-size: 12px; color: var(--text-muted); }
+        .btn-refresh {
+            background: var(--primary-soft);
+            color: var(--primary);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-refresh:hover { background: #ddd6fe; }
+        .btn-refresh.spinning svg { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .auto-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+        .auto-toggle input { cursor: pointer; }
+
+        /* KPI ROW */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: var(--surface);
+            padding: 18px 22px;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            border: 1px solid var(--border);
+        }
+        .card h3 { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .card .value { font-size: 28px; font-weight: 800; color: var(--primary); }
+        .card.success .value { color: var(--success); }
+        .card.danger .value { color: var(--danger); }
+        .card.warn .value { color: var(--warning); }
+
+        /* CHART */
+        .chart-box {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 20px 25px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+        }
+        .chart-box h3 { margin: 0 0 12px; font-size: 14px; font-weight: 700; }
+        .chart-wrapper { position: relative; height: 180px; }
+
+        /* MAIN GRID */
+        .main {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 18px;
+            border: 1px solid var(--border);
+            height: 75vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header {
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 12px;
+        }
+        .sidebar-header h2 { margin: 0 0 12px; font-size: 14px; font-weight: 700; }
+        .search-input, .filter-select {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 13px;
+            margin-bottom: 8px;
+            outline: none;
+        }
+        .search-input:focus, .filter-select:focus { border-color: var(--primary); }
+        .customer-list { flex: 1; overflow-y: auto; margin: 0 -8px; padding: 0 8px; }
+        .customer-item {
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            border: 1px solid transparent;
+            transition: all 0.15s;
+        }
+        .customer-item:hover { background: var(--bg); }
+        .customer-item.active { background: var(--primary-soft); border-color: var(--primary); }
+        .customer-item-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        .customer-email {
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+        }
+        .badge-pending {
+            background: var(--danger);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .customer-item-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .sentiment-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .sentiment-dot.pozitif { background: var(--success); }
+        .sentiment-dot.negatif { background: var(--danger); }
+        .sentiment-dot.notr { background: var(--text-muted); }
+        .customer-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        /* CONVERSATION PANEL */
+        .conversation {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--border);
+            height: 75vh;
+            overflow-y: auto;
+        }
+        .conv-header {
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 18px;
+        }
+        .conv-header h2 { margin: 0; font-size: 17px; font-weight: 700; }
+        .conv-header .meta {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            display: flex;
+            gap: 16px;
+        }
+        .mail-card {
+            background: var(--bg);
+            border-radius: 14px;
+            padding: 16px 18px;
+            margin-bottom: 14px;
+            border-left: 4px solid var(--text-muted);
+        }
+        .mail-card.pozitif { border-left-color: var(--success); }
+        .mail-card.negatif { border-left-color: var(--danger); }
+        .mail-card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .mail-date { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+        .st-badge {
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.4px;
+        }
+        .st-pozitif { background: #dcfce7; color: #166534; }
+        .st-negatif { background: #fee2e2; color: #991b1b; }
+        .st-notr { background: #f1f5f9; color: #475569; }
+        .st-yanitlandi { background: #dcfce7; color: #166534; }
+        .mail-summary { font-size: 13px; font-weight: 600; margin: 8px 0; line-height: 1.4; }
+        .mail-body, .mail-reply {
+            font-size: 12px;
+            color: var(--text-muted);
+            background: white;
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+        .mail-reply { border-left: 3px solid var(--primary); }
+        .mail-reply-label, .mail-body-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--primary);
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+        }
+        .mail-body-label { color: var(--text-muted); }
+        .mail-actions {
+            margin-top: 10px;
+            display: flex;
+            justify-content: flex-end;
+        }
+        .btn-reply {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .btn-reply:hover { background: #4338ca; }
+
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.6);
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+        .modal.show { display: flex; }
+        .modal-content {
+            background: white;
+            padding: 28px;
+            border-radius: 20px;
+            width: 480px;
+            max-width: 90vw;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        }
+        .modal h2 { margin: 0 0 4px; font-size: 17px; }
+        .modal-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+        textarea {
+            width: 100%;
+            height: 160px;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            font-family: inherit;
+            font-size: 13px;
+            resize: vertical;
+            outline: none;
+        }
+        textarea:focus { border-color: var(--primary); }
+        .modal-actions { display: flex; gap: 10px; margin-top: 14px; }
+        .btn-send {
+            flex: 1;
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        .btn-send:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-cancel {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        /* TOAST */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 14px 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            border-left: 4px solid var(--primary);
+            font-size: 13px;
+            font-weight: 500;
+            min-width: 240px;
+            opacity: 0;
+            transform: translateX(20px);
+            transition: all 0.25s;
+        }
+        .toast.show { opacity: 1; transform: translateX(0); }
+        .toast.success { border-left-color: var(--success); }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.info { border-left-color: var(--primary); }
+
+        /* SETTINGS MODAL */
+        .settings-content { width: 640px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+        .form-section {
+            background: var(--bg);
+            border-radius: 12px;
+            padding: 16px 18px;
+            margin-bottom: 14px;
+        }
+        .form-section h3 {
+            margin: 0 0 12px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .form-row { margin-bottom: 12px; }
+        .form-row:last-child { margin-bottom: 0; }
+        .form-row label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        .form-row input, .form-row select, .form-row textarea {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+            background: white;
+        }
+        .form-row input:focus, .form-row select:focus, .form-row textarea:focus { border-color: var(--primary); }
+        .form-row textarea { resize: vertical; min-height: 70px; }
+        .faq-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+        .faq-row {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr auto;
+            gap: 8px;
+            align-items: start;
+        }
+        .faq-row input { padding: 8px 10px; font-size: 12px; }
+        .btn-remove-faq {
+            background: #fee2e2;
+            color: var(--danger);
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-remove-faq:hover { background: #fecaca; }
+        .btn-add-faq {
+            background: var(--primary-soft);
+            color: var(--primary);
+            border: 1px dashed var(--primary);
+            padding: 8px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            width: 100%;
+        }
+        .btn-add-faq:hover { background: #ddd6fe; }
+        .btn-settings {
+            background: var(--bg);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            padding: 8px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-settings:hover { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+
+        /* RESPONSIVE */
+        @media (max-width: 900px) {
+            .stats { grid-template-columns: repeat(2, 1fr); }
+            .main { grid-template-columns: 1fr; }
+            .sidebar, .conversation { height: auto; max-height: 60vh; }
+            .faq-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <header>
+        <div>
+            <h1>n8n Pro AI Operations Dashboard</h1>
+            <div class="subtitle">Bakırçay YBS · Akıllı Müşteri İlişkileri Sistemi</div>
+        </div>
+        <div class="actions">
+            <span class="refresh-info" id="refreshInfo">Yükleniyor...</span>
+            <label class="auto-toggle">
+                <input type="checkbox" id="autoRefreshToggle" checked>
+                Auto-refresh (30sn)
+            </label>
+            <button class="btn-settings" onclick="openSettingsModal()">
+                ⚙️ Ayarlar
+            </button>
+            <button class="btn-refresh" id="refreshBtn" onclick="loadData(true)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                    <path d="M21 3v5h-5"/>
+                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                    <path d="M8 16H3v5"/>
+                </svg>
+                Yenile
+            </button>
+        </div>
+    </header>
+
+    <div class="stats">
+        <div class="card"><h3>Toplam Müşteri</h3><div class="value" id="kpiCustomers">0</div></div>
+        <div class="card warn"><h3>Bekleyen Mail</h3><div class="value" id="kpiPending">0</div></div>
+        <div class="card success"><h3>Pozitif</h3><div class="value" id="kpiPositive">0</div></div>
+        <div class="card danger"><h3>Negatif</h3><div class="value" id="kpiNegative">0</div></div>
+    </div>
+
+    <div class="chart-box">
+        <h3>📈 Son 7 Gün Sentiment Trend</h3>
+        <div class="chart-wrapper"><canvas id="sentimentChart"></canvas></div>
+    </div>
+
+    <div class="main">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>👥 Müşteriler</h2>
+                <input type="text" class="search-input" id="searchInput" placeholder="🔍 Email veya mesaj ara..." oninput="renderSidebar()">
+                <select class="filter-select" id="filterSelect" onchange="renderSidebar()">
+                    <option value="all">Tümü</option>
+                    <option value="pending">Sadece bekleyen</option>
+                    <option value="negative">Sadece negatif</option>
+                    <option value="answered">Sadece yanıtlanan</option>
+                </select>
+            </div>
+            <div class="customer-list" id="customerList">
+                <div class="empty-state">Yükleniyor...</div>
+            </div>
+        </div>
+
+        <div class="conversation" id="conversationPanel">
+            <div class="empty-state" style="padding-top: 100px;">
+                💬 Soldaki listeden bir müşteri seçin
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="replyModal" class="modal">
+    <div class="modal-content">
+        <h2>AI Yanıt Taslağı</h2>
+        <div class="modal-meta" id="replyMeta"></div>
+        <textarea id="replyText" placeholder="Yanıtınızı yazın..."></textarea>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeModal()">Vazgeç</button>
+            <button class="btn-send" id="sendBtn" onclick="sendReply()">🚀 Yanıtı Gönder</button>
+        </div>
+    </div>
+</div>
+
+<div id="settingsModal" class="modal">
+    <div class="modal-content settings-content">
+        <h2>⚙️ İşletme Ayarları</h2>
+        <div class="modal-meta">Bu bilgileri AI yanıtlarına dahil edeceğiz. Tüm alanlar opsiyonel.</div>
+
+        <div class="form-section">
+            <h3>İşletme Bilgileri</h3>
+            <div class="form-row">
+                <label for="set-sirket">Şirket Adı</label>
+                <input type="text" id="set-sirket" placeholder="örn: Bakırçay Mağazası">
+            </div>
+            <div class="form-row">
+                <label for="set-urun">Ürün / Hizmet</label>
+                <input type="text" id="set-urun" placeholder="örn: Çevrimiçi giyim mağazası">
+            </div>
+            <div class="form-row">
+                <label for="set-saat">Çalışma Saatleri</label>
+                <input type="text" id="set-saat" placeholder="örn: Hafta içi 09:00–18:00">
+            </div>
+            <div class="form-row">
+                <label for="set-iade">İade / Değişim Politikası</label>
+                <input type="text" id="set-iade" placeholder="örn: 14 gün içinde iade hakkı">
+            </div>
+            <div class="form-row">
+                <label for="set-kargo">Kargo Bilgisi</label>
+                <input type="text" id="set-kargo" placeholder="örn: Yurtiçi Kargo, 1–3 iş günü">
+            </div>
+            <div class="form-row">
+                <label for="set-ton">Yanıt Tonu</label>
+                <select id="set-ton">
+                    <option value="">— Seçiniz —</option>
+                    <option value="samimi">Samimi</option>
+                    <option value="profesyonel">Profesyonel</option>
+                    <option value="resmi">Resmi</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="set-ek">Ek Bilgi</label>
+                <textarea id="set-ek" placeholder="AI'nın bilmesi gereken her şey: özel kampanyalar, sıkça karıştırılan konular, vb."></textarea>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3>Sık Sorulan Sorular</h3>
+            <div class="faq-list" id="faqList"></div>
+            <button class="btn-add-faq" onclick="addFaqRow()">+ Yeni SSS Ekle</button>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeSettingsModal()">Vazgeç</button>
+            <button class="btn-send" id="saveSettingsBtn" onclick="saveSettings()">💾 Kaydet</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+    const CONFIG = {
+        getDataUrl: '${N8N_BASE_URL}/webhook/get-crm-data',
+        sendReplyUrl: '${N8N_BASE_URL}/webhook/send-reply',
+        getSettingsUrl: '${N8N_BASE_URL}/webhook/get-settings',
+        saveSettingsUrl: '${N8N_BASE_URL}/webhook/save-settings',
+        refreshIntervalMs: 30000
+    };
+
+    let currentFaqs = [];
+
+    let allData = [];
+    let customers = {};
+    let selectedCustomerEmail = null;
+    let activeMailIndex = null;
+    let chart = null;
+    let refreshTimer = null;
+    let lastRefreshAt = null;
+
+    // ─── DATA LOADING ────────────────────────────────────────
+    async function loadData(showToast = false) {
+        const btn = document.getElementById('refreshBtn');
+        btn.classList.add('spinning');
+        try {
+            const res = await fetch(CONFIG.getDataUrl);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+            allData = Array.isArray(data) ? data : [];
+            groupByCustomer();
+            renderAll();
+            lastRefreshAt = new Date();
+            updateRefreshInfo();
+            if (showToast) toast('Veriler güncellendi', 'success');
+        } catch (err) {
+            console.error(err);
+            document.getElementById('customerList').innerHTML =
+                '<div class="empty-state" style="color:var(--danger)">⚠ Veri çekilemedi.<br>n8n çalışıyor mu? CORS ayarı doğru mu?</div>';
+            toast('Bağlantı hatası — n8n kontrol edin', 'error');
+        } finally {
+            btn.classList.remove('spinning');
+        }
+    }
+
+    function groupByCustomer() {
+        customers = {};
+        allData.forEach((item) => {
+            const email = item.Email || 'bilinmiyor';
+            if (!customers[email]) customers[email] = { email, items: [] };
+            customers[email].items.push(item);
+        });
+        Object.values(customers).forEach(c => {
+            c.items.sort((a, b) => new Date(a.Tarih || 0) - new Date(b.Tarih || 0));
+            c.pendingCount = c.items.filter(i => (i['Yanit Durumu'] || '').toLowerCase() === 'bekliyor').length;
+            const last = c.items[c.items.length - 1];
+            c.lastSentiment = (last?.Duygu || '').toLowerCase().trim() || 'notr';
+            c.lastDate = last?.Tarih || '';
+        });
+    }
+
+    // ─── KPI + CHART ─────────────────────────────────────────
+    function updateKPIs() {
+        document.getElementById('kpiCustomers').textContent = Object.keys(customers).length;
+        document.getElementById('kpiPending').textContent = allData.filter(i => (i['Yanit Durumu'] || '').toLowerCase() === 'bekliyor').length;
+        document.getElementById('kpiPositive').textContent = allData.filter(i => (i.Duygu || '').toLowerCase() === 'pozitif').length;
+        document.getElementById('kpiNegative').textContent = allData.filter(i => (i.Duygu || '').toLowerCase() === 'negatif').length;
+    }
+
+    function renderChart() {
+        const days = [...Array(7)].map((_, i) => {
+            const d = new Date();
+            d.setDate(d.getDate() - (6 - i));
+            return d;
+        });
+        const labels = days.map(d => d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }));
+        const dayKeys = days.map(d => d.toISOString().slice(0, 10));
+
+        const positiveData = dayKeys.map(k =>
+            allData.filter(i => (i.Tarih || '').startsWith(k) && (i.Duygu || '').toLowerCase() === 'pozitif').length
+        );
+        const negativeData = dayKeys.map(k =>
+            allData.filter(i => (i.Tarih || '').startsWith(k) && (i.Duygu || '').toLowerCase() === 'negatif').length
+        );
+
+        if (chart) chart.destroy();
+        const ctx = document.getElementById('sentimentChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Pozitif', data: positiveData, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', tension: 0.3, fill: true },
+                    { label: 'Negatif', data: negativeData, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', tension: 0.3, fill: true }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } } },
+                    x: { ticks: { font: { size: 11 } } }
+                }
+            }
+        });
+    }
+
+    // ─── SIDEBAR ─────────────────────────────────────────────
+    function renderSidebar() {
+        const list = document.getElementById('customerList');
+        const search = document.getElementById('searchInput').value.toLowerCase();
+        const filter = document.getElementById('filterSelect').value;
+
+        let arr = Object.values(customers);
+
+        if (search) {
+            arr = arr.filter(c =>
+                c.email.toLowerCase().includes(search) ||
+                c.items.some(i => (i.Mesaj || '').toLowerCase().includes(search) || (i.Ozet || '').toLowerCase().includes(search))
+            );
+        }
+        if (filter === 'pending') arr = arr.filter(c => c.pendingCount > 0);
+        if (filter === 'negative') arr = arr.filter(c => c.items.some(i => (i.Duygu || '').toLowerCase() === 'negatif'));
+        if (filter === 'answered') arr = arr.filter(c => c.items.some(i => (i['Yanit Durumu'] || '').toLowerCase() === 'yanıtlandı'));
+
+        arr.sort((a, b) => {
+            if (a.pendingCount !== b.pendingCount) return b.pendingCount - a.pendingCount;
+            return new Date(b.lastDate || 0) - new Date(a.lastDate || 0);
+        });
+
+        if (arr.length === 0) {
+            list.innerHTML = '<div class="empty-state">Eşleşen müşteri yok</div>';
+            return;
+        }
+
+        list.innerHTML = arr.map(c => `
+            <div class="customer-item ${c.email === selectedCustomerEmail ? 'active' : ''}" onclick="selectCustomer('${escapeAttr(c.email)}')">
+                <div class="customer-item-top">
+                    <span class="customer-email">${escapeHtml(c.email)}</span>
+                    ${c.pendingCount > 0 ? `<span class="badge-pending">${c.pendingCount}</span>` : ''}
+                </div>
+                <div class="customer-item-bottom">
+                    <span class="customer-meta">
+                        <span class="sentiment-dot ${c.lastSentiment}"></span>
+                        ${c.items.length} mesaj
+                    </span>
+                    <span class="customer-meta">${formatRelativeTime(c.lastDate)}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function selectCustomer(email) {
+        selectedCustomerEmail = email;
+        renderSidebar();
+        renderConversation();
+    }
+
+    // ─── CONVERSATION PANEL ──────────────────────────────────
+    function renderConversation() {
+        const panel = document.getElementById('conversationPanel');
+        if (!selectedCustomerEmail || !customers[selectedCustomerEmail]) {
+            panel.innerHTML = '<div class="empty-state" style="padding-top: 100px;">💬 Soldaki listeden bir müşteri seçin</div>';
+            return;
+        }
+        const c = customers[selectedCustomerEmail];
+        const firstDate = c.items[0]?.Tarih ? formatDate(c.items[0].Tarih) : '-';
+
+        panel.innerHTML = `
+            <div class="conv-header">
+                <h2>${escapeHtml(c.email)}</h2>
+                <div class="meta">
+                    <span>📨 ${c.items.length} mesaj</span>
+                    <span>⏳ ${c.pendingCount} bekleyen</span>
+                    <span>📅 İlk: ${firstDate}</span>
+                </div>
+            </div>
+            ${c.items.map((item, idx) => renderMailCard(item, idx, c.email)).join('')}
+        `;
+    }
+
+    function renderMailCard(item, idx, email) {
+        const sentiment = (item.Duygu || '').toLowerCase().trim() || 'notr';
+        const status = (item['Yanit Durumu'] || '').toLowerCase().trim();
+        const isAnswered = status === 'yanıtlandı';
+        const replyText = item['Gonderilen Yanit'] || item['AI Taslak'] || '';
+        const replyLabel = item['Gonderilen Yanit'] ? '✓ Gönderilen Yanıt' : '🤖 AI Taslak (henüz yanıtlanmadı)';
+
+        return `
+            <div class="mail-card ${sentiment}" data-mail-idx="${idx}">
+                <div class="mail-card-top">
+                    <span class="mail-date">${formatDate(item.Tarih)}</span>
+                    <div style="display:flex; gap:6px;">
+                        <span class="st-badge st-${sentiment}">${sentiment.toUpperCase()}</span>
+                        ${isAnswered
+                            ? '<span class="st-badge st-yanitlandi">✓ YANITLANDI</span>'
+                            : '<span class="st-badge st-notr">BEKLİYOR</span>'}
+                    </div>
+                </div>
+                <div class="mail-summary">${escapeHtml(item.Ozet || 'Özet yok')}</div>
+                <div class="mail-body">
+                    <div class="mail-body-label">Müşteri Mesajı</div>
+                    ${escapeHtml(item.Mesaj || '-')}
+                </div>
+                ${replyText ? `
+                <div class="mail-reply">
+                    <div class="mail-reply-label">${replyLabel}</div>
+                    ${escapeHtml(replyText)}
+                </div>` : ''}
+                ${!isAnswered ? `
+                <div class="mail-actions">
+                    <button class="btn-reply" onclick="openReplyModal('${escapeAttr(email)}', ${idx})">💬 Yanıtla</button>
+                </div>` : ''}
+            </div>
+        `;
+    }
+
+    // ─── REPLY MODAL ─────────────────────────────────────────
+    function openReplyModal(email, idx) {
+        const item = customers[email].items[idx];
+        activeMailIndex = idx;
+        document.getElementById('replyMeta').textContent =
+            `Alıcı: ${email} · Bu, müşterinin ${customers[email].items.length}. maili`;
+        document.getElementById('replyText').value = item['AI Taslak'] || '';
+        document.getElementById('replyModal').classList.add('show');
+    }
+
+    function closeModal() {
+        document.getElementById('replyModal').classList.remove('show');
+    }
+
+    async function sendReply() {
+        const email = selectedCustomerEmail;
+        const message = document.getElementById('replyText').value.trim();
+        const sendBtn = document.getElementById('sendBtn');
+
+        if (!message) { toast('Yanıt boş olamaz', 'error'); return; }
+
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Gönderiliyor...';
+
+        try {
+            const res = await fetch(CONFIG.sendReplyUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, message })
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+
+            // Optimistik UI: state'i lokalde güncelle
+            if (customers[email] && activeMailIndex !== null) {
+                const item = customers[email].items[activeMailIndex];
+                item['Yanit Durumu'] = 'Yanıtlandı';
+                item['Gonderilen Yanit'] = message;
+                customers[email].pendingCount = customers[email].items.filter(i => (i['Yanit Durumu'] || '').toLowerCase() === 'bekliyor').length;
+            }
+
+            toast('✓ Mail başarıyla gönderildi', 'success');
+            closeModal();
+            renderAll();
+        } catch (err) {
+            console.error(err);
+            toast('Gönderim hatası — n8n çalışıyor mu?', 'error');
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = '🚀 Yanıtı Gönder';
+        }
+    }
+
+    // ─── TOAST ───────────────────────────────────────────────
+    function toast(message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        const t = document.createElement('div');
+        t.className = `toast ${type}`;
+        t.textContent = message;
+        container.appendChild(t);
+        requestAnimationFrame(() => t.classList.add('show'));
+        setTimeout(() => {
+            t.classList.remove('show');
+            setTimeout(() => t.remove(), 300);
+        }, 3000);
+    }
+
+    // ─── SETTINGS MODAL ──────────────────────────────────────
+    async function openSettingsModal() {
+        document.getElementById('settingsModal').classList.add('show');
+        try {
+            const res = await fetch(CONFIG.getSettingsUrl);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const payload = await res.json();
+            const data = Array.isArray(payload) ? payload[0] : payload;
+            const s = data?.settings || {};
+            document.getElementById('set-sirket').value = s.sirket_adi || '';
+            document.getElementById('set-urun').value = s.urun_hizmet || '';
+            document.getElementById('set-saat').value = s.calisma_saatleri || '';
+            document.getElementById('set-iade').value = s.iade_politikasi || '';
+            document.getElementById('set-kargo').value = s.kargo_bilgisi || '';
+            document.getElementById('set-ton').value = s.yanit_tonu || '';
+            document.getElementById('set-ek').value = s.ek_bilgi || '';
+            currentFaqs = Array.isArray(data?.faqs) ? data.faqs.map(f => ({ soru: f.soru || '', cevap: f.cevap || '' })) : [];
+            renderFaqList();
+        } catch (err) {
+            console.error(err);
+            toast('Ayarlar yüklenemedi — n8n çalışıyor mu?', 'error');
+            currentFaqs = [];
+            renderFaqList();
+        }
+    }
+
+    function closeSettingsModal() {
+        document.getElementById('settingsModal').classList.remove('show');
+    }
+
+    function renderFaqList() {
+        const list = document.getElementById('faqList');
+        if (currentFaqs.length === 0) {
+            list.innerHTML = '<div style="font-size:12px; color:var(--text-muted); padding: 8px 0;">Henüz SSS yok. Aşağıdaki butondan ekleyebilirsin.</div>';
+            return;
+        }
+        list.innerHTML = currentFaqs.map((f, i) => `
+            <div class="faq-row">
+                <input type="text" placeholder="Soru" value="${escapeAttr(f.soru)}" oninput="updateFaq(${i}, 'soru', this.value)">
+                <input type="text" placeholder="Cevap" value="${escapeAttr(f.cevap)}" oninput="updateFaq(${i}, 'cevap', this.value)">
+                <button class="btn-remove-faq" onclick="removeFaqRow(${i})" title="Sil">×</button>
+            </div>
+        `).join('');
+    }
+
+    function addFaqRow() {
+        currentFaqs.push({ soru: '', cevap: '' });
+        renderFaqList();
+    }
+
+    function removeFaqRow(idx) {
+        currentFaqs.splice(idx, 1);
+        renderFaqList();
+    }
+
+    function updateFaq(idx, field, value) {
+        if (currentFaqs[idx]) currentFaqs[idx][field] = value;
+    }
+
+    async function saveSettings() {
+        const btn = document.getElementById('saveSettingsBtn');
+        btn.disabled = true;
+        btn.textContent = 'Kaydediliyor...';
+
+        const payload = {
+            settings: {
+                sirket_adi: document.getElementById('set-sirket').value.trim(),
+                urun_hizmet: document.getElementById('set-urun').value.trim(),
+                calisma_saatleri: document.getElementById('set-saat').value.trim(),
+                iade_politikasi: document.getElementById('set-iade').value.trim(),
+                kargo_bilgisi: document.getElementById('set-kargo').value.trim(),
+                yanit_tonu: document.getElementById('set-ton').value,
+                ek_bilgi: document.getElementById('set-ek').value.trim()
+            },
+            faqs: currentFaqs.filter(f => f.soru.trim() && f.cevap.trim())
+                            .map(f => ({ soru: f.soru.trim(), cevap: f.cevap.trim() }))
+        };
+
+        try {
+            const res = await fetch(CONFIG.saveSettingsUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            toast('✓ Ayarlar kaydedildi', 'success');
+            closeSettingsModal();
+        } catch (err) {
+            console.error(err);
+            toast('Kaydetme hatası — n8n çalışıyor mu?', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '💾 Kaydet';
+        }
+    }
+
+    // ─── AUTO-REFRESH ────────────────────────────────────────
+    function setupAutoRefresh() {
+        const toggle = document.getElementById('autoRefreshToggle');
+        const apply = () => {
+            if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+            if (toggle.checked) {
+                refreshTimer = setInterval(() => loadData(false), CONFIG.refreshIntervalMs);
+            }
+        };
+        toggle.addEventListener('change', apply);
+        apply();
+        setInterval(updateRefreshInfo, 5000);
+    }
+
+    function updateRefreshInfo() {
+        const el = document.getElementById('refreshInfo');
+        if (!lastRefreshAt) { el.textContent = 'Henüz veri yok'; return; }
+        const diffSec = Math.floor((Date.now() - lastRefreshAt) / 1000);
+        if (diffSec < 5) el.textContent = '✓ Şimdi güncellendi';
+        else if (diffSec < 60) el.textContent = `Son güncelleme: ${diffSec} sn önce`;
+        else el.textContent = `Son güncelleme: ${Math.floor(diffSec / 60)} dk önce`;
+    }
+
+    // ─── HELPERS ─────────────────────────────────────────────
+    function formatDate(iso) {
+        if (!iso) return '-';
+        const d = new Date(iso);
+        if (isNaN(d)) return iso;
+        return d.toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+    function formatRelativeTime(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        if (isNaN(d)) return '';
+        const diffMin = Math.floor((Date.now() - d) / 60000);
+        if (diffMin < 1) return 'şimdi';
+        if (diffMin < 60) return `${diffMin} dk önce`;
+        if (diffMin < 1440) return `${Math.floor(diffMin / 60)} sa önce`;
+        return `${Math.floor(diffMin / 1440)} gün önce`;
+    }
+    function escapeHtml(s) {
+        if (s == null) return '';
+        return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+    function escapeAttr(s) {
+        return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    function renderAll() {
+        updateKPIs();
+        renderChart();
+        renderSidebar();
+        renderConversation();
+    }
+
+    // ─── INIT ────────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+        setupAutoRefresh();
+        loadData(false);
+    });
+    document.getElementById('replyModal').addEventListener('click', (e) => {
+        if (e.target.id === 'replyModal') closeModal();
+    });
+    document.getElementById('settingsModal').addEventListener('click', (e) => {
+        if (e.target.id === 'settingsModal') closeSettingsModal();
+    });
+</script>
+
+</body>
+</html>
